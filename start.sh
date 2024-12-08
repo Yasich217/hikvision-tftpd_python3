@@ -44,4 +44,3 @@ echo "Starting Python script..."
 python3 ./hikvision_tftpd3.py --server-ip "$IP" || error_exit "Python script failed to run."
 
 echo "Script completed successfully!"
-
