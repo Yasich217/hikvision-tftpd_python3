@@ -4,6 +4,8 @@ This project upgrades the original Hikvision TFTP Recovery Tool, which was writt
 - **`start.sh`**: A Bash script to configure the network interface and execute the Python server.  
 - **`hikvision_tftpd3.py`**: A Python 3 script implementing a minimal TFTP server to serve firmware files to Hikvision devices.
 
+**Note**: This tool is specifically written for the **DS-7608NI-i2/8p NVR** model. Other models are not guaranteed to work and have not been tested.
+
 ---
 
 ## Files Overview
@@ -126,4 +128,5 @@ Starting transfer
 
 ## Disclaimer
 
-This tool is provided as-is under the MIT license. The authors are not responsible for any damage caused by improper use. Use at your own risk.
+This tool is specifically written for the **DS-7608NI-i2/8p NVR** model. Other models may not work as intended, as they have not been tested.  
+The tool is provided as-is under the MIT license. The authors are not responsible for any damage caused by improper use. Use at your own risk.
