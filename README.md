@@ -1,50 +1,96 @@
-Unbrick a Hikvision device. Use as follows:
+Hikvision TFTP Recovery Tool
+This project provides a script-based solution to recover or unbrick Hikvision devices using TFTP. It includes two main components:
 
-Setup the expected IP address:
+start.sh: A Bash script to configure the network interface and execute the Python server.
+hikvision_tftpd3.py: A Python script implementing a minimal TFTP server to serve firmware files to Hikvision devices.
+Files Overview
+start.sh
+Purpose:
+Configures your system's network interface to the required IP address (192.0.0.128).
+Checks if the IP address is already assigned to avoid conflicts.
+Executes the TFTP server implemented in hikvision_tftpd3.py.
+Cleans up the network configuration after the script completes or is interrupted.
+Features:
+Interface Detection:
+Automatically detects the first active Ethernet interface.
+IP Assignment:
+Sets the interface's IP address to 192.0.0.128 (required for Hikvision recovery mode).
+Ensures the IP is not already assigned before attempting to configure it.
+Error Handling:
+Handles various errors like missing permissions or unavailable network interfaces gracefully.
+Cleanup:
+Automatically removes the assigned IP address after the script completes, even if terminated early (e.g., via Ctrl+C).
+Usage:
+bash
+Copy code
+sudo ./start.sh
+Example Output:
+bash
+Copy code
+Found Ethernet interface: eth0
+Setting IP address of eth0 to 192.0.0.128...
+Starting Python script...
+Script completed successfully!
+Cleaning up: Removing IP address 192.0.0.128 from eth0...
+Done!
+hikvision_tftpd3.py
+Purpose:
+Implements a minimal TFTP server to serve firmware files to Hikvision devices.
+Features:
+TFTP Protocol:
+Supports TFTP's Read Request (RRQ) operation to send firmware files in response to client requests.
+Handshake Support:
+Responds to Hikvision-specific "magic" handshake packets to initiate the recovery process.
+Configurable Block Size:
+Automatically adjusts the TFTP block size based on client options for optimal performance.
+Error Handling:
+Provides detailed logs for unexpected packets or errors during the TFTP process.
+Usage:
+The script is typically executed by start.sh. However, it can also be run independently if the required network configuration is already in place:
 
-    linux$ sudo ifconfig eth0:0 192.0.0.128
-    osx$   sudo ifconfig en0 alias 192.0.0.128 255.255.255.0
+bash
+Copy code
+python3 ./hikvision_tftpd3.py --server-ip 192.0.0.128
+Command-Line Arguments:
+--filename (default: digicap.dav): The firmware file to serve via TFTP. Ensure the file is present in the same directory as the script.
+--server-ip (default: 192.0.0.128): The IP address the TFTP server binds to. This must match the device's recovery expectations.
+Example Output:
+bash
+Copy code
+Setting block size to 512
+Serving 102400-byte digicap.dav (block size 512, 200 blocks)
+Replied to magic handshake request.
+Starting transfer
+  53:    5 /  200 [#####                     ]
+  ...
+  53:  200 /  200 [##########################]
+  Done!
+Workflow
+Run the start.sh script:
 
-Download the firmware to use:
+Configures the network interface.
+Launches the TFTP server (hikvision_tftpd3.py).
+The Hikvision device in recovery mode:
 
-    $ curl -o digicap.dav <url of firmware>
+Sends a handshake packet to the server.
+Initiates a TFTP transfer to retrieve the firmware file (digicap.dav).
+After successful recovery:
 
-Run the script:
-
-    $ sudo ./hikvision_tftpd.py
-
-Hit ctrl-C when done.
-
-The Hikvision TFTP handshake (for both cameras and NVRs) is stupid but easy
-enough. The client sends a particular packet to the server's port 9978 from
-the client port 9979 and expects the server to echo it back.  Once that
-happens, it proceeds to send a tftp request (on the standard tftp port, 69)
-for a specific file, which it then installs. The tftp server must reply
-from port 69 (unlike the tftpd package that comes with Debian).
-
-This script handles both the handshake and the actual TFTP transfer.
-The TFTP server is very simple but appears to be good enough.
-
-Note the expected IP addresses and file name appear to differ by model. So far
-there are two known configurations:
-
-| client IP    | server IP    | filename      |
-| ------------ | ------------ | ------------- |
-| 192.0.0.64   | 192.0.0.128  | `digicap.dav` |
-| 172.9.18.100 | 172.9.18.80  | `digicap.mav` |
-
-This program defaults to the former. The latter requires commandline overrides:
-
-    $ sudo ./hikvision_tftp.py --server-ip=172.9.18.80 --filename=digicap.mav
-
-If nothing happens when your device restarts, your device may be expecting
-another IP address. tcpdump may be helpful in diagnosing this:
-
-    $ sudo tcpdump -i eth0 -vv -e -nn ether proto 0x0806
-    tcpdump: listening on eth0, link-type EN10MB (Ethernet), capture size 262144 bytes
-    16:21:58.804425 28:57:be:8a:aa:53 > ff:ff:ff:ff:ff:ff, ethertype ARP (0x0806), length 60: Ethernet (len 6), IPv4 (len 4), Request who-has 172.9.18.80 tell 172.9.18.100, length 46
-    16:22:00.805251 28:57:be:8a:aa:53 > ff:ff:ff:ff:ff:ff, ethertype ARP (0x0806), length 60: Ethernet (len 6), IPv4 (len 4), Request who-has 172.9.18.80 tell 172.9.18.100, length 46
-
-Feel free to open an issue for help.
-
-See [discussion thread](https://www.ipcamtalk.com/showthread.php/3647-Hikvision-DS-2032-I-Console-Recovery).
+The TFTP transfer completes.
+The network configuration is cleaned up by the start.sh script.
+Prerequisites
+Linux environment with Bash and Python 3 installed.
+Administrative privileges (sudo) to configure the network interface.
+The firmware file (digicap.dav) present in the same directory as the scripts.
+Troubleshooting
+Common Issues:
+Permission Denied:
+Run the script with sudo.
+IP Address Already Assigned:
+The script will handle this gracefully, but ensure no conflicting services are running.
+Python Errors:
+Ensure Python 3 is installed and available as python3.
+Logs:
+Both scripts provide detailed logs to help diagnose issues. Check the output for clues if something goes wrong.
+Disclaimer
+This tool is provided as-is under the MIT license. The authors are not responsible for any damage caused by improper use. Use at your own risk.
