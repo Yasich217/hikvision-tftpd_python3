@@ -1,8 +1,8 @@
-# Hikvision TFTP Recovery Tool
+# Hikvision TFTP Recovery Tool (Python 3 Upgrade)
 
-This project provides a script-based solution to recover or unbrick Hikvision devices using TFTP. It includes two main components:  
+This project upgrades the original Hikvision TFTP Recovery Tool, which was written in Python 2, to Python 3. Python 2 is deprecated and no longer supported, so this updated version ensures compatibility with Python 3. The tool provides a script-based solution to recover or unbrick Hikvision devices using TFTP. It includes two main components:  
 - **`start.sh`**: A Bash script to configure the network interface and execute the Python server.  
-- **`hikvision_tftpd3.py`**: A Python script implementing a minimal TFTP server to serve firmware files to Hikvision devices.
+- **`hikvision_tftpd3.py`**: A Python 3 script implementing a minimal TFTP server to serve firmware files to Hikvision devices.
 
 ---
 
