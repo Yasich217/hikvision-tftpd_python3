@@ -87,6 +87,12 @@ Starting transfer
 
 ---
 
+### Legacy Files: `hikvision_tftpd.py` and `hikvision_tftpd_test.py`
+
+The files `hikvision_tftpd.py` and `hikvision_tftpd_test.py` are considered legacy and are provided for historical purposes. They were originally written for Python 2 and are not maintained or recommended for use in modern systems. Users are encouraged to use `hikvision_tftpd3.py` for Python 3 compatibility and better performance.
+
+---
+
 ## Workflow
 
 1. Run the **`start.sh`** script:
