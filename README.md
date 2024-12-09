@@ -12,7 +12,7 @@ It upgrades the previous Python 2-based script to Python 3, as Python 2 is now d
 
 - **Python 3**: This tool is written for Python 3, so make sure it is installed on your system.
 - **TFTP Server**: The tool uses TFTP for file transfers. Ensure that your system has a working TFTP server, or use the provided script to start the server.
-- **Linux or macOS**: The provided `start.sh` script is designed for Linux or macOS. Windows users should use alternative methods to execute the Python script.
+- **Linux **: The provided `start.sh` script is designed for Linux. Windows users should use alternative methods to execute the Python script.
 
 ---
 
@@ -27,7 +27,7 @@ It upgrades the previous Python 2-based script to Python 3, as Python 2 is now d
    ```
 
 2. **Make the `start.sh` Script Executable**  
-   On Linux/macOS, you will need to give execution permission to the `start.sh` script. Run the following command:
+   On Linux, you will need to give execution permission to the `start.sh` script. Run the following command:
 
    ```bash
    chmod +x start.sh
@@ -40,7 +40,7 @@ It upgrades the previous Python 2-based script to Python 3, as Python 2 is now d
 
 ## Usage
 
-### Running the Tool on Linux/macOS
+### Running the Tool on Linux
 
 1. **Prepare Your Network Interface**  
    Make sure your network interface is configured and ready for the TFTP transfer. The script will set your server's IP to `192.0.0.128`, so ensure this address is not already in use on your network.
