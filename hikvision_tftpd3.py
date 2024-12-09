@@ -5,9 +5,9 @@ Unbrick a Hikvision device. See README.md for usage information.
 
 from __future__ import division
 
-__author__ = 'Scott Lamb'
+__author__ = 'Simon Beehre'
 __license__ = 'MIT'
-__email__ = 'slamb@slamb.org'
+__email__ = 'sbeehre@gmail.com'
 
 import argparse
 import errno
