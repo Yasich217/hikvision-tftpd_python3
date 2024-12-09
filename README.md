@@ -23,7 +23,7 @@ It upgrades the previous Python 2-based script to Python 3, as Python 2 is now d
 
    ```bash
    git clone https://github.com/yourusername/sbeehre/hikvision-tftpd_python3.git
-   cd sbeehre/hikvision-tftpd_python3
+   cd hikvision-tftpd_python3
    ```
 
 2. **Make the `start.sh` Script Executable**  
