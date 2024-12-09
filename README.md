@@ -1,6 +1,6 @@
 # Hikvision NVR Unbrick Tool/Factory Reset
 
-This tool is specifically designed to help unbrick **DS-7608NI-i2/8p** Hikvision NVR devices, it will also factory reset a NVR if you have forgotten the password. Other models have not been tested, and functionality is not guaranteed for those.
+This tool is specifically designed to help unbrick **DS-7608NI-i2/8p** Hikvision NVR devices, it will also factory reset your NVR if you have forgotten the password. Other models have not been tested, and functionality is not guaranteed for those.
 
 It upgrades the previous Python 2-based script to Python 3, as Python 2 is now deprecated. This ensures compatibility with modern systems.
 
