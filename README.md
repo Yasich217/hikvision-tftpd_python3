@@ -22,19 +22,19 @@ It upgrades the previous Python 2-based script to Python 3, as Python 2 is now d
    Clone this repository to your local machine:
 
    ```bash
-   git clone https://github.com/yourusername/hikvision-unbrick-tool.git
-   cd hikvision-unbrick-tool
+   git clone https://github.com/yourusername/sbeehre/hikvision-tftpd_python3.git
+   cd sbeehre/hikvision-tftpd_python3
    ```
 
 2. **Make the `start.sh` Script Executable**  
    On Linux, you will need to give execution permission to the `start.sh` script. Run the following command:
 
    ```bash
-   chmod +x start.sh
+   sudo chmod +x start.sh
    ```
 
 3. **Install Python 3 (if not already installed)**  
-   Make sure Python 3 is installed on your machine. You can install it using your system's package manager or from [python.org](https://www.python.org/).
+   Make sure Python 3 is installed on your machine. You can install it using your system's package manager.
 
 ---
 
