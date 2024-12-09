@@ -1,138 +1,82 @@
-# Hikvision TFTP Recovery Tool (Python 3 Upgrade)
+# Hikvision NVR Unbrick Tool (Python 3 Upgrade)
 
-This project upgrades the original Hikvision TFTP Recovery Tool, which was written in Python 2, to Python 3. Python 2 is deprecated and no longer supported, so this updated version ensures compatibility with Python 3. The tool provides a script-based solution to recover or unbrick Hikvision devices using TFTP. It includes two main components:  
-- **`start.sh`**: A Bash script to configure the network interface and execute the Python server.  
-- **`hikvision_tftpd3.py`**: A Python 3 script implementing a minimal TFTP server to serve firmware files to Hikvision devices.
+This tool is specifically designed to help unbrick **DS-7608NI-i2/8p** Hikvision NVR devices. Other models have not been tested, and functionality is not guaranteed for those.
 
-**Note**: This tool is specifically written for the **DS-7608NI-i2/8p NVR** model. Other models are not guaranteed to work and have not been tested.
+It upgrades the previous Python 2-based script to Python 3, as Python 2 is now deprecated. This ensures compatibility with modern systems.
 
----
-
-## Files Overview
-
-### `start.sh`
-
-#### Purpose:
-- Configures your system's network interface to the required IP address (`192.0.0.128`).
-- Checks if the IP address is already assigned to avoid conflicts.
-- Executes the TFTP server implemented in `hikvision_tftpd3.py`.
-- Cleans up the network configuration after the script completes or is interrupted.
-
-#### Features:
-1. **Interface Detection**:
-   - Automatically detects the first active Ethernet interface.
-2. **IP Assignment**:
-   - Sets the interface's IP address to `192.0.0.128` (required for Hikvision recovery mode).
-   - Ensures the IP is not already assigned before attempting to configure it.
-3. **Error Handling**:
-   - Handles various errors like missing permissions or unavailable network interfaces gracefully.
-4. **Cleanup**:
-   - Automatically removes the assigned IP address after the script completes, even if terminated early (e.g., via `Ctrl+C`).
-
-#### Usage:
-```bash
-sudo ./start.sh
-```
-
-#### Example Output:
-```
-Found Ethernet interface: eth0
-Setting IP address of eth0 to 192.0.0.128...
-Starting Python script...
-Script completed successfully!
-Cleaning up: Removing IP address 192.0.0.128 from eth0...
-Done!
-```
-
----
-
-### `hikvision_tftpd3.py`
-
-#### Purpose:
-- Implements a minimal TFTP server to serve firmware files to Hikvision devices.
-
-#### Features:
-1. **TFTP Protocol**:
-   - Supports TFTP's Read Request (RRQ) operation to send firmware files in response to client requests.
-2. **Handshake Support**:
-   - Responds to Hikvision-specific "magic" handshake packets to initiate the recovery process.
-3. **Configurable Block Size**:
-   - Automatically adjusts the TFTP block size based on client options for optimal performance.
-4. **Error Handling**:
-   - Provides detailed logs for unexpected packets or errors during the TFTP process.
-
-#### Usage:
-The script is typically executed by `start.sh`. However, it can also be run independently if the required network configuration is already in place:
-```bash
-python3 ./hikvision_tftpd3.py --server-ip 192.0.0.128
-```
-
-#### Command-Line Arguments:
-- **`--filename`** (default: `digicap.dav`):
-  The firmware file to serve via TFTP. Ensure the file is present in the same directory as the script.
-- **`--server-ip`** (default: `192.0.0.128`):
-  The IP address the TFTP server binds to. This must match the device's recovery expectations.
-
-#### Example Output:
-```
-Setting block size to 512
-Serving 102400-byte digicap.dav (block size 512, 200 blocks)
-Replied to magic handshake request.
-Starting transfer
-  53:    5 /  200 [#####                     ]
-  ...
-  53:  200 /  200 [##########################]
-  Done!
-```
-
----
-
-### Legacy Files: `hikvision_tftpd.py` and `hikvision_tftpd_test.py`
-
-The files `hikvision_tftpd.py` and `hikvision_tftpd_test.py` are considered legacy and are provided for historical purposes. They were originally written for Python 2 and are not maintained or recommended for use in modern systems. Users are encouraged to use `hikvision_tftpd3.py` for Python 3 compatibility and better performance.
-
----
-
-## Workflow
-
-1. Run the **`start.sh`** script:
-   - Configures the network interface.
-   - Launches the TFTP server (`hikvision_tftpd3.py`).
-
-2. The Hikvision device in recovery mode:
-   - Sends a handshake packet to the server.
-   - Initiates a TFTP transfer to retrieve the firmware file (`digicap.dav`).
-
-3. After successful recovery:
-   - The TFTP transfer completes.
-   - The network configuration is cleaned up by the `start.sh` script.
+> **Note:** The scripts **hikvision_tftpd.py** and **hikvision_tftpd_test.py** are legacy files and are provided for historical purposes. They are based on Python 2, and it is recommended to use the Python 3 script (**hikvision_tftpd3.py**) for future use.
 
 ---
 
 ## Prerequisites
 
-- Linux environment with Bash and Python 3 installed.
-- Administrative privileges (`sudo`) to configure the network interface.
-- The firmware file (`digicap.dav`) present in the same directory as the scripts.
+- **Python 3**: This tool is written for Python 3, so make sure it is installed on your system.
+- **TFTP Server**: The tool uses TFTP for file transfers. Ensure that your system has a working TFTP server, or use the provided script to start the server.
+- **Linux or macOS**: The provided `start.sh` script is designed for Linux or macOS. Windows users should use alternative methods to execute the Python script.
+
+---
+
+## Installation
+
+1. **Clone the Repository**  
+   Clone this repository to your local machine:
+
+   ```bash
+   git clone https://github.com/yourusername/hikvision-unbrick-tool.git
+   cd hikvision-unbrick-tool
+   ```
+
+2. **Make the `start.sh` Script Executable**  
+   On Linux/macOS, you will need to give execution permission to the `start.sh` script. Run the following command:
+
+   ```bash
+   chmod +x start.sh
+   ```
+
+3. **Install Python 3 (if not already installed)**  
+   Make sure Python 3 is installed on your machine. You can install it using your system's package manager or from [python.org](https://www.python.org/).
+
+---
+
+## Usage
+
+### Running the Tool on Linux/macOS
+
+1. **Prepare Your Network Interface**  
+   Make sure your network interface is configured and ready for the TFTP transfer. The script will set your server's IP to `192.0.0.128`, so ensure this address is not already in use on your network.
+
+2. **Execute the Start Script**  
+   Run the `start.sh` script to initiate the tool:
+
+   ```bash
+   ./start.sh
+   ```
+
+   The script will:
+   - Assign the IP address `192.0.0.128` to your network interface.
+   - Launch the Python 3 script (`hikvision_tftpd3.py`).
+   - Start the TFTP transfer process.
+
+3. **Monitor the Progress**  
+   The terminal will display progress updates, showing the number of blocks transferred and the current block size.
 
 ---
 
 ## Troubleshooting
 
-### Common Issues:
-1. **Permission Denied**:
-   - Run the script with `sudo`.
-2. **IP Address Already Assigned**:
-   - The script will handle this gracefully, but ensure no conflicting services are running.
-3. **Python Errors**:
-   - Ensure Python 3 is installed and available as `python3`.
-
-### Logs:
-- Both scripts provide detailed logs to help diagnose issues. Check the output for clues if something goes wrong.
+- **IP Conflict**: Ensure that the IP `192.0.0.128` is available. If it is already assigned to another device, the script may fail. You can manually configure your interface if needed.
+- **Script Failure**: If the script fails to start, check if Python 3 is installed and ensure the necessary dependencies are met.
+- **Compatibility**: This tool is specifically designed for **DS-7608NI-i2/8p** models. Other models may not work as expected.
 
 ---
 
-## Disclaimer
+## License
 
-This tool is specifically written for the **DS-7608NI-i2/8p NVR** model. Other models may not work as intended, as they have not been tested.  
-The tool is provided as-is under the MIT license. The authors are not responsible for any damage caused by improper use. Use at your own risk.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## Acknowledgements
+
+- This tool is based on previous work, but it has been updated to support Python 3 due to the deprecation of Python 2.
+
