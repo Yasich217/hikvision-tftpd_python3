@@ -1,4 +1,4 @@
-# Hikvision NVR Unbrick Tool/Factory Reset
+# Hikvision NVR Unbrick/Factory Reset Tool
 
 This tool is specifically designed to help unbrick **DS-7608NI-i2/8p** Hikvision NVR devices, it will also factory reset your NVR if you have forgotten the password. Other models have not been tested, and functionality is not guaranteed for those.
 
