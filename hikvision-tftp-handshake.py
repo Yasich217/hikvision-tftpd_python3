@@ -1,42 +1,83 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+#
+# Author: <Your Name>
+# Description: TFTP Handshake Responder for Hikvision Devices
+# This script listens for a specific handshake and responds by transferring files via TFTP.
+
+import fcntl
 import socket
 import struct
 import argparse
 import os
+import sys
+import time
 
-# Configuration
-DEFAULT_HOST_IP = '192.168.1.128'
-DEFAULT_INTERFACE = 'wlan0'
-DEFAULT_FILE = 'digicap.dav'
+# Configuration constants
+DEFAULT_HOST_IP = '192.168.1.128'  # Default IP to listen on
+
+# Ports used for the handshake and TFTP communication
 HANDSHAKE_PORT = 9978
 RESPONSE_PORT = 9979
 TFTP_PORT = 69
+
+# Handshake signature constants
 HANDSHAKE_SIGNATURE = b'SWKH'
 HANDSHAKE_RESPONSE = struct.pack('20s', HANDSHAKE_SIGNATURE)
 
-# TFTP constants
-TFTP_OPCODE_RRQ = 1
-TFTP_OPCODE_DATA = 3
-TFTP_OPCODE_ACK = 4
-DEFAULT_BLOCK_SIZE = 512
-MAX_RETRIES = 20
-ACK_TIMEOUT = 5
+# TFTP opcodes
+TFTP_OPCODE_RRQ = 1    # Read request
+TFTP_OPCODE_DATA = 3    # Data packet
+TFTP_OPCODE_ACK = 4     # Acknowledgment
 
-# Network constants
-ETH_HEADER_LEN = 14
-IP_HEADER_MIN_LEN = 20
-UDP_HEADER_LEN = 8
-ETH_TYPE_IPV4 = 0x0800
-IP_PROTO_UDP = 17
-IP_VERSION_IHL = 0x45
-IP_FLAGS_DF = 0x4000
-IP_TTL_HANDSHAKE = 128
-IP_TTL_TFTP = 64
+# Default TFTP block size and timeouts
+DEFAULT_BLOCK_SIZE = 512  # Default block size for TFTP transfers
+MAX_RETRIES = 20          # Max retries for receiving ACK
+ACK_TIMEOUT = 5           # Timeout for waiting for ACK (in seconds)
 
-# Struct format strings
-ETH_HEADER_FORMAT = '!6s6sH'
-IP_HEADER_FORMAT = '!BBHHHBBH4s4s'
-UDP_HEADER_FORMAT = '!HHHH'
+# Network constants for Ethernet, IP, and UDP headers
+ETH_HEADER_LEN = 14              # Length of Ethernet header
+IP_HEADER_MIN_LEN = 20          # Minimum length of IP header
+UDP_HEADER_LEN = 8              # Length of UDP header
+ETH_TYPE_IPV4 = 0x0800          # EtherType for IPv4
+IP_PROTO_UDP = 17               # Protocol number for UDP
+IP_VERSION_IHL = 0x45           # IP version and IHL (IPv4 with 5 words header)
+IP_FLAGS_DF = 0x4000            # IP Flags (Don't Fragment)
+IP_TTL_HANDSHAKE = 128          # Time-to-Live for the handshake packet
+IP_TTL_TFTP = 64                # Time-to-Live for the TFTP packet
+
+# Struct format strings for packing/unpacking headers
+ETH_HEADER_FORMAT = '!6s6sH'      # Ethernet header format (MAC addresses and EtherType)
+IP_HEADER_FORMAT = '!BBHHHBBH4s4s'  # IP header format (various fields, source and destination IP)
+UDP_HEADER_FORMAT = '!HHHH'       # UDP header format (source port, destination port, length, checksum)
+
+def get_interface_ip(iface):
+    """Возвращает основной IPv4 адрес указанного интерфейса."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # Используем SIOCGIFADDR для получения адреса интерфейса
+        info = fcntl.ioctl(
+            s.fileno(),
+            0x8915,  # SIOCGIFADDR
+            struct.pack('256s', iface[:15].encode())
+        )
+        ip = socket.inet_ntoa(info[20:24])
+        return ip
+    except (IOError, OSError):
+        return None
+    finally:
+        s.close()
+
+def get_default_interface(ip):
+    """Определяет интерфейс, имеющий указанный IP-адрес."""
+    try:
+        for iface in os.listdir('/sys/class/net'):
+            iface_ip = get_interface_ip(iface)
+            if iface_ip == ip:
+                return iface
+        return None
+    except Exception:
+        return None
 
 def calculate_checksum(data):
     """Calculate IP header checksum"""
@@ -51,12 +92,8 @@ def calculate_checksum(data):
 def parse_arguments():
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(description='Hikvision TFTP handshake responder')
-    parser.add_argument('--host', default=DEFAULT_HOST_IP,
+    parser.add_argument('--server-ip', default=DEFAULT_HOST_IP,
                         help=f'IP address to listen on (default: {DEFAULT_HOST_IP})')
-    parser.add_argument('--interface', default=DEFAULT_INTERFACE,
-                        help=f'Network interface (default: {DEFAULT_INTERFACE})')
-    parser.add_argument('--file', default=DEFAULT_FILE,
-                        help='File to serve via TFTP')
     return parser.parse_args()
 
 def build_tftp_response(src_mac, dst_mac, src_ip, dst_ip, src_port, dst_port, block_number, data):
@@ -80,91 +117,79 @@ def build_tftp_response(src_mac, dst_mac, src_ip, dst_ip, src_port, dst_port, bl
         struct.pack('>H', TFTP_OPCODE_DATA) + struct.pack('>H', block_number) + data
     )
 
+    # Calculate and set the IP checksum
     ip_part = response[ETH_HEADER_LEN:ETH_HEADER_LEN + IP_HEADER_MIN_LEN]
     checksum = calculate_checksum(ip_part)
     response = response[:ETH_HEADER_LEN + 10] + struct.pack('!H', checksum) + response[ETH_HEADER_LEN + 12:]
 
     return response
 
-def parse_ack_packet(packet, expected_src_port, host_ip):
-    """Parse and validate ACK packet"""
-    if len(packet) < ETH_HEADER_LEN + IP_HEADER_MIN_LEN + UDP_HEADER_LEN + 4:
-        return None
+def print_progress_bar(progress, total, bar_length=50):
+    """Print progress bar in a single line with estimated remaining time"""
+    progress_percent = (progress / total) * 100
+    filled_length = int(progress_percent / 100 * bar_length)
+    bar = '=' * filled_length + '-' * (bar_length - filled_length)
+    
+    # Calculate remaining time
+    elapsed_time = time.time() - start_time
+    transfer_rate = progress / elapsed_time if elapsed_time > 0 else 0
+    remaining_time = (total - progress) / transfer_rate if transfer_rate > 0 else 0
 
-    # Parse Ethernet header
-    eth_header = packet[:ETH_HEADER_LEN]
-    _, _, eth_type = struct.unpack(ETH_HEADER_FORMAT, eth_header)
-    if eth_type != ETH_TYPE_IPV4:
-        return None
-
-    # Parse IP header
-    ip_header = packet[ETH_HEADER_LEN:ETH_HEADER_LEN + IP_HEADER_MIN_LEN]
-    ip_ver_ihl, _, _, _, _, _, proto, _, src_ip, dst_ip = struct.unpack(IP_HEADER_FORMAT, ip_header)
-    if proto != IP_PROTO_UDP or socket.inet_ntoa(dst_ip) != host_ip:
-        return None
-
-    ip_header_len = (ip_ver_ihl & 0x0F) * 4
-    udp_start = ETH_HEADER_LEN + ip_header_len
-
-    # Parse UDP header
-    udp_header = packet[udp_start:udp_start + UDP_HEADER_LEN]
-    src_port, dst_port, udp_len, _ = struct.unpack(UDP_HEADER_FORMAT, udp_header)
-    if dst_port != TFTP_PORT or src_port != expected_src_port:
-        return None
-
-    # Parse TFTP opcode and block number
-    tftp_start = udp_start + UDP_HEADER_LEN
-    if len(packet) < tftp_start + 4:
-        return None
-
-    opcode, block_num = struct.unpack('>HH', packet[tftp_start:tftp_start + 4])
-    if opcode != TFTP_OPCODE_ACK:
-        return None
-
-    return block_num
+    # Print the progress bar
+    print(f'\r[{bar}] {progress_percent:.2f}%  {progress}/{total} bytes  Est. time remaining: {remaining_time:.2f}s', end='')
 
 def main():
     args = parse_arguments()
-    
-    # Setup RAW socket
+
+    server_ip = args.server_ip
+
+    # Определение интерфейса
+    interface = get_default_interface(server_ip)
+    if not interface:
+        print("Не удалось определить интерфейс.")
+        sys.exit(1)
+
+    # Создаем сокет
     sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(ETH_TYPE_IPV4))
-    sock.bind((args.interface, 0))
-    
-    print(f"Listening for Hikvision handshake on {args.host}:{HANDSHAKE_PORT}")
-    print("Press Ctrl+C to stop...")
+    sock.bind((interface, 0))  # Слушаем на интерфейсе
+
+    print(f"Listening on {interface} {server_ip}")
+    print(f"To monitor traffic, run:\n  tcpdump -i {interface} -vv -X 'host {server_ip} and (port {HANDSHAKE_PORT} or port {RESPONSE_PORT} or port {TFTP_PORT})'\n")
+
+    global start_time
+    start_time = time.time()
 
     try:
         while True:
+            # Receive packets in a loop
             packet, _ = sock.recvfrom(65535)
             
-            # Parse Ethernet header
+            # Check for valid Ethernet header
             if len(packet) < ETH_HEADER_LEN: continue
             eth_header = packet[:ETH_HEADER_LEN]
             dst_mac, src_mac, eth_type = struct.unpack(ETH_HEADER_FORMAT, eth_header)
             if eth_type != ETH_TYPE_IPV4: continue
 
-            # Parse IP header
+            # Check for valid IP header
             if len(packet) < ETH_HEADER_LEN + IP_HEADER_MIN_LEN: continue
             ip_header = packet[ETH_HEADER_LEN:ETH_HEADER_LEN + IP_HEADER_MIN_LEN]
             ip_ver_ihl, _, _, _, _, _, proto, _, src_ip, dst_ip = struct.unpack(IP_HEADER_FORMAT, ip_header)
             
-            # Check protocol and destination IP
-            if proto != IP_PROTO_UDP or socket.inet_ntoa(dst_ip) != args.host:
+            # Ensure correct protocol and destination IP
+            if proto != IP_PROTO_UDP or socket.inet_ntoa(dst_ip) != args.server_ip:
                 continue
 
             # Calculate IP header length
             ip_header_len = (ip_ver_ihl & 0x0F) * 4
             if len(packet) < ETH_HEADER_LEN + ip_header_len + UDP_HEADER_LEN: continue
 
-            # Parse UDP header
+            # Parse UDP header and ensure correct destination port
             udp_start = ETH_HEADER_LEN + ip_header_len
             src_port, dst_port, udp_len, _ = struct.unpack(UDP_HEADER_FORMAT, packet[udp_start:udp_start + UDP_HEADER_LEN])
-            
-            # Check destination port
             if dst_port != HANDSHAKE_PORT:
                 continue
 
-            # Verify handshake signature
+            # Verify handshake signature in the data
             data_start = udp_start + UDP_HEADER_LEN
             if len(packet) < data_start + len(HANDSHAKE_SIGNATURE): continue
             if packet[data_start:data_start + len(HANDSHAKE_SIGNATURE)] != HANDSHAKE_SIGNATURE:
@@ -195,9 +220,6 @@ def main():
             sock.send(response)
             print("Handshake response sent")
 
-            # Now listen for TFTP requests
-            block_number = 1
-
             while True:
                 tftp_packet, addr = sock.recvfrom(65536)
 
@@ -206,94 +228,68 @@ def main():
                 if tftp_dst_port != TFTP_PORT:
                     continue
 
-                # Check for Read Request
+                # Check for Read Request opcode
                 rrq_opcode = struct.unpack('>H', tftp_packet[udp_start + UDP_HEADER_LEN:udp_start + UDP_HEADER_LEN + 2])[0]
+
                 if rrq_opcode == TFTP_OPCODE_RRQ:
                     data_start = udp_start + UDP_HEADER_LEN + 2
                     options_start = tftp_packet[data_start:].find(b'\x00')
                     if options_start != -1:
                         filename = tftp_packet[data_start:data_start + options_start]
-                        options = tftp_packet[data_start + options_start + 1:-1]
                         print(f"Received read request for file: {filename.decode()}")
-                        print(f"Options: {options.decode()}")
 
-                        # Извлечение blksize и tsize
-                        blksize = DEFAULT_BLOCK_SIZE  # Значение по умолчанию
-                        tsize = 0  # Значение по умолчанию
-                        options_list = options.split(b'\x00')
-                        for i in range(0, len(options_list) - 1, 2):
-                            if options_list[i] == b'blksize':
-                                blksize = int(options_list[i + 1])
-                            elif options_list[i] == b'tsize':
-                                tsize = int(options_list[i + 1])
+                        # Now listen for TFTP requests
+                        block_number = 1  # Start with block 1
+                        total_bytes = os.path.getsize(filename)
+                        progress = 0  # Initialize progress
+                        start_time = time.time()  # Track the start time
 
-                        print(f"Block size: {blksize}, Total size: {tsize}")
-
-                        # TFTP transfer logic
                         try:
-                            with open(args.file, 'rb') as f:
-                                file_size = os.path.getsize(args.file)
-                                bytes_sent = 0
-                                block_number = 1  # Start from block number 1
-                                client_port = src_port
-                                client_ip = src_ip
-
+                            with open(filename, 'rb') as f:
                                 while True:
-                                    data = f.read(blksize)
+                                    data = f.read(DEFAULT_BLOCK_SIZE)
                                     
-                                    # Check if we have reached the end of the file
                                     if not data:
                                         # Send empty block to signal EOF
                                         response = build_tftp_response(
                                             dst_mac, src_mac,
                                             dst_ip, src_ip,
-                                            TFTP_PORT, client_port,
+                                            TFTP_PORT, src_port,
                                             block_number, b''
                                         )
                                         sock.send(response)
-                                        print("Sent final empty block")
+                                        print("\nFile transfer complete.")
+
+                                        # After file transfer, listen for the completion signal (i.e., SWKH)
+                                        print("Waiting for firmware completion signal...")
+                                        while True:
+                                            response_packet, _ = sock.recvfrom(65535)
+                                            if len(response_packet) < ETH_HEADER_LEN + IP_HEADER_MIN_LEN + UDP_HEADER_LEN:
+                                                continue
+                                            udp_start = ETH_HEADER_LEN + (response_packet[ETH_HEADER_LEN] & 0x0F) * 4
+                                            udp_hdr = response_packet[udp_start:udp_start + 8]
+                                            tftp_src_port, tftp_dst_port, _, _ = struct.unpack('!HHHH', udp_hdr)
+                                            if tftp_dst_port == HANDSHAKE_PORT and response_packet[udp_start + 8:udp_start + 8 + 4] == HANDSHAKE_SIGNATURE:
+                                                print("Firmware installation completed. Exiting.")
+                                                sys.exit(0)  # Exit after receiving the SWKH signal
                                         break
 
                                     # Send data block
                                     response = build_tftp_response(src_mac, dst_mac, src_ip, dst_ip, tftp_src_port, tftp_dst_port, block_number, data)
                                     sock.send(response)
-                                    bytes_sent += len(data)
+                                    progress += len(data)
 
-                                    # Calculate and print progress
-                                    progress = (bytes_sent / file_size) * 100
-                                    print(f"Progress: {progress:.2f}%")
+                                    # Print the progress bar with estimated remaining time
+                                    print_progress_bar(progress, total_bytes)
 
-                                    # Wait for ACK with retries
-                                    ack_received = False
-                                    for retry in range(MAX_RETRIES):
-                                        try:
-                                            sock.settimeout(ACK_TIMEOUT)
-                                            ack_packet, _ = sock.recvfrom(65535)
-                                            ack_block = parse_ack_packet(ack_packet, tftp_src_port, args.host)
-                                            
-                                            if ack_block == block_number:
-                                                ack_received = True
-                                                break
-                                            elif ack_block is not None:
-                                                print(f"Received ACK for wrong block {ack_block}")
-                                        except socket.timeout:
-                                            print(f"Timeout waiting for ACK (retry {retry+1})")
-                                            # Resend the block
-                                            sock.send(response)
-                                        except Exception as e:
-                                            print(f"Error processing ACK: {e}")
-
-                                    if not ack_received:
-                                        print("Max retries exceeded, aborting transfer")
-                                        break
+                                    sock.settimeout(ACK_TIMEOUT)
+                                    ack_packet, _ = sock.recvfrom(65535)
 
                                     # Increment block number, reset if it exceeds 65535
-                                    block_number = (block_number + 1) % 65536  # This ensures block_number is between 0 and 65535
-
-                                print("TFTP transfer complete")
+                                    block_number = (block_number + 1) % 65536
 
                         except FileNotFoundError:
-                            print(f"Error: File {args.file} not found")
+                            print(f"Error: File {filename} not found")
                         except Exception as e:
                             print(f"File transfer error: {str(e)}")
 
@@ -301,6 +297,9 @@ def main():
         print("\nStopped by user")
     finally:
         sock.close()
+
+if __name__ == '__main__':
+    main()
 
 if __name__ == '__main__':
     main()
